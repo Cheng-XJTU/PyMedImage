@@ -1,3 +1,5 @@
+Modified version of `PyMedImage` for summer project. Forked from `https://github.com/ryanneph/PyMedImage` by Ryan Neph
+Added customer functions for 3d array visualization, fast NIFTI1 file io, and volume pre-processing.
 # PyMedImage
 This is a library written in Python 3.x and CUDA for common tasks when dealing with the DICOM medical image format in a research setting. 
 ## Overview
