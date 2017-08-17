@@ -11,6 +11,9 @@ import logging
 import dicom
 from string import Template
 from .misc import indent, g_indents
+import copy
+import numpy as np
+import pdb
 
 # initialize module logger
 logger = logging.getLogger(__name__)
@@ -61,7 +64,7 @@ def read_dicom_dir(path, recursive=False, verbosity=0):
 
         # Now read the dicom files that were located within path
         if verbosity == 0:
-            #low verbosity
+            #low vserbosity
             logger.debug(indent(dicom_paths[:5],l2_indent))
         elif verbosity == 1:
             #high verbosity
@@ -78,6 +81,60 @@ def read_dicom_dir(path, recursive=False, verbosity=0):
             return ds_list
         else:
             return None
+
+def read_dicom_3d(path, reference_fid, verbosity = 0):
+    """ read all the slices of a same volume in a same folder given one slice as a reference, and return the whole 3d volume in together with the dicom of the beginning slice
+    
+    Args:
+    path -- Path of the folder
+    reference_fid -- filename of one slice of the target volume
+    
+    Return:
+    The dicom object of the first slice of 
+
+    """
+    print("Warning: This function is still underconstruction")
+    dcm_ref = read_dicom(reference_fid)
+
+    ref_uid = dcm_ref.StudyInstanceUID
+    # if size is not specified it will automatically count the number
+    # of dicom slices in the folder, except for the rtstruct
+    #if _size is None:
+    _dcms = os.listdir(path)
+    _min_z = 9999
+    num_slices = 0
+    _dcm_buffer = []
+    for _slice in _dcms:
+        if ("dcm" in _slice) and ("rtstruct" not in _slice):
+            _tmp_dcm = read_dicom(_slice)
+            if _tmp_dcm.StudyInstanceUID != ref_uid:
+                # not a same scan
+                continue
+            num_slices += 1
+            _z = _tmp_dcm.ImagePositionPatient[2]
+            _dcm_buffer.append((_tmp_dcm, float(_z)))
+            if _z < _min_z:
+                _min_z = _z
+        else:
+            continue
+
+    obj_dcm = copy.deepcopy(dcm_ref)
+
+    _offset = [ float(dcm_ref.ImagePositionPatient[0]), float(dcm_ref.ImagePositionPatient[1]), float(_min_z) ]
+    obj_dcm.ImagePositionPatient = _offset 
+    
+    _size = [int(dcm_ref.Rows), int(dcm_ref.Columns), num_slices]
+    obj_volume = np.zeros(list(reversed(_size)), dtype = np.float32)
+    
+    _dcm_buffer = sorted(_dcm_buffer, key = lambda x : float(x[1]))
+    for idx,_slice in enumerate(_dcm_buffer):
+        obj_volume[idx,:,:] = _slice[0].pixel_array
+    
+    
+    if verbosity != 0:
+        print("The detailed dicom information are listed as follows: \n ------------------------")
+        print(obj_dcm)
+    return obj_volume, _dcm_buffer[0]
 
 def probeDicomProperties(root, prop_label_list, recursive=True, silent=False):
     """probe all dicoms in root for unique values of the properties defined in prop_label_list

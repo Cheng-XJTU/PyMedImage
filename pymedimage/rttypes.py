@@ -13,6 +13,7 @@ import pickle
 import scipy.io  # savemat -> save to .mat
 import struct
 import copy
+import pdb
 import warnings
 from PIL import Image, ImageDraw
 from scipy.ndimage import interpolation
@@ -56,6 +57,73 @@ class FrameOfReference:
         self.spacing = spacing
         self.size = size
         self.UID = UID
+    
+    # TODO: Use the read_dicom_3d version in dcmio.py for volume parsing
+    @classmethod
+    def _from_dcm_image(cls, dcm_object, UID = None, direc = None):
+        """ initialization with one dicom object 
+        Args:
+            direc: directory of dicom object
+        """
+
+        _offset = ( float(dcm_object.ImagePositionPatient[0]), float(dcm_object.ImagePositionPatient[1]), 0)
+        _size = (int(dcm_object.Rows), int(dcm_object.Columns), 0)
+        _spacing = (float(dcm_object.PixelSpacing[0]), float(dcm_object.PixelSpacing[1]), float(dcm_object.SliceThickness) )
+        ref_uid = dcm_object.StudyInstanceUID
+        # if size is not specified it will automatically count the number
+        # of dicom slices in the folder, except for the rtstruct
+        #if _size is None:
+        if direc = None:
+            direc = "./"
+            print("Warning: Dicom directory not fed. Searching through current directory.")
+        _dcms = os.listdir(direc)
+        _min_z = 9999
+        num_slices = 0
+        for _slice in _dcms:
+            if ("dcm" in _slice) and ("rtstruct" not in _slice):
+                _tmp_dcm = dcmio.read_dicom(_slice)
+                if _tmp_dcm.StudyInstanceUID != ref_uid:
+                    # not a same scan
+                    continue
+                num_slices += 1
+                _z = _tmp_dcm.ImagePositionPatient[2]
+                if _z < _min_z:
+                    _min_z = _z
+            else:
+                continue
+
+        if num_slices == 0:
+            raise FileNotFoundError("No valid dicom slice in this volume!")
+        # get size and offset
+        # pdb.set_trace()
+        _size = list(_size)
+        _offset = list(_offset)
+        _size[2] = int(num_slices)
+        _offset[2] = int(_min_z)
+        _size = tuple(_size)
+        _offset = tuple(_offset)
+        #debug
+        print("Sizem offset and spacing:")
+        print(_size) 
+        print(_offset) 
+        print(_spacing) 
+        return cls(_offset, _spacing, _size)
+
+    @classmethod
+    def from_dcm_fid(cls, dcm_fid, UID = None):
+        """ initialization with a valid dicom slice fid """
+        try:
+            os.path.isfile(fid)
+        except:
+            raise FileNotFoundError("Reference dicom slice not found")
+
+        dcm_dir = os.path.dirname(fid)
+        dcm_object = dcm.read_file(fid)
+
+        return _from_dcm_image(dcm_object, direc = dcm_dir)        
+        
+
+
 
     def __repr__(self):
         return 'FrameOfReference:\n' + \
@@ -129,6 +197,7 @@ class ROI:
             roicontour         -- dicom dataset containing contour point coords for all slices
             structuresetroi    -- dicom dataset containing additional information about contour
         """
+        #pdb.set_trace()
         self.roinumber = structuresetroi.ROINumber
         self.refforuid = structuresetroi.ReferencedFrameOfReferenceUID
         self.frameofreference = None
@@ -198,6 +267,7 @@ class ROI:
         # parse rtstruct file and instantiate maskvolume for each contour located
         # add each maskvolume to dict with key set to contour name and number?
         if (ds is not None):
+            #pdb.set_trace()
             # get structuresetROI sequence
             StructureSetROI_list = ds.StructureSetROISequence
             nContours = len(StructureSetROI_list)
@@ -536,7 +606,6 @@ class BaseVolume:
         #  vol[vol>1e10] = 0
         #  vol[vol<-1e10] = 0
         return cls.fromArray(vol, frameofreference)
-
 
     def fromDatasetList(self, dataset_list):
         """constructor: takes a list of dicom slice datasets and builds a BaseVolume array
