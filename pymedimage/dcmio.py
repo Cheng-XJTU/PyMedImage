@@ -82,11 +82,11 @@ def read_dicom_dir(path, recursive=False, verbosity=0):
         else:
             return None
 
-def read_dicom_3d(path, reference_fid, verbosity = 0):
+def read_dicom_3d(reference_fid, path = None, verbosity = 0):
     """ read all the slices of a same volume in a same folder given one slice as a reference, and return the whole 3d volume in together with the dicom of the beginning slice
     
     Args:
-    path -- Path of the folder
+    path -- Path of the folder. Default value is the reference file directory
     reference_fid -- filename of one slice of the target volume
     
     Return:
@@ -99,7 +99,13 @@ def read_dicom_3d(path, reference_fid, verbosity = 0):
     ref_uid = dcm_ref.StudyInstanceUID
     # if size is not specified it will automatically count the number
     # of dicom slices in the folder, except for the rtstruct
-    #if _size is None:
+
+    if path is None:
+        path = os.path.dirname(reference_fid)
+    
+    if path == '':
+        path = "./"
+
     _dcms = os.listdir(path)
     _min_z = 9999
     num_slices = 0

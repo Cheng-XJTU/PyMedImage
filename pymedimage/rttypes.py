@@ -8,7 +8,7 @@ import os
 import logging
 import math
 import numpy as np
-import dicom  # pydicom
+import dicom as dcm# pydicom
 import pickle
 import scipy.io  # savemat -> save to .mat
 import struct
@@ -65,7 +65,7 @@ class FrameOfReference:
         Args:
             direc: directory of dicom object
         """
-
+        #pdb.set_trace()
         _offset = ( float(dcm_object.ImagePositionPatient[0]), float(dcm_object.ImagePositionPatient[1]), 0)
         _size = (int(dcm_object.Rows), int(dcm_object.Columns), 0)
         _spacing = (float(dcm_object.PixelSpacing[0]), float(dcm_object.PixelSpacing[1]), float(dcm_object.SliceThickness) )
@@ -73,7 +73,7 @@ class FrameOfReference:
         # if size is not specified it will automatically count the number
         # of dicom slices in the folder, except for the rtstruct
         #if _size is None:
-        if direc = None:
+        if (direc == None) or (direc == ''):
             direc = "./"
             print("Warning: Dicom directory not fed. Searching through current directory.")
         _dcms = os.listdir(direc)
@@ -112,18 +112,16 @@ class FrameOfReference:
     @classmethod
     def from_dcm_fid(cls, dcm_fid, UID = None):
         """ initialization with a valid dicom slice fid """
+        #pdb.set_trace()
         try:
-            os.path.isfile(fid)
+            os.path.isfile(dcm_fid)
         except:
-            raise FileNotFoundError("Reference dicom slice not found")
-
-        dcm_dir = os.path.dirname(fid)
-        dcm_object = dcm.read_file(fid)
-
-        return _from_dcm_image(dcm_object, direc = dcm_dir)        
-        
-
-
+            raise FileNotFoundError("Reference dicom slice %s not found"%dcm_fid)
+        #pdb.set_trace()
+        dcm_dir = os.path.dirname(dcm_fid)
+        dcm_object = dcm.read_file(dcm_fid)
+        #pdb.set_trace()
+        return cls._from_dcm_image(dcm_object, direc = dcm_dir)        
 
     def __repr__(self):
         return 'FrameOfReference:\n' + \
