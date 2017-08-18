@@ -19,9 +19,12 @@ def write_nii(array_data, filename, path = "", affine = None):
     array_data = np.int16(array_data)
     array_img = nib.Nifti1Image(array_data, affine)
     save_fid = os.path.join(path,filename)
-    array_img.to_filename(filename)
-#    pdb.set_trace()
-    return filename
+    try:
+        array_img.to_filename(save_fid)
+        print("Nii object %s has been saved!"%save_fid)
+    except:
+        raise Exception("file %s cannot be saved!"%save_fid)
+    return save_fid
 
 def read_nii_image(input_fid):
     """read the nii image data into numpy array"""

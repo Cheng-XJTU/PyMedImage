@@ -82,7 +82,7 @@ class FrameOfReference:
         num_slices = 0
         for _slice in _dcms:
             if ("dcm" in _slice) and ("rtstruct" not in _slice):
-                _tmp_dcm = dcmio.read_dicom(_slice)
+                _tmp_dcm = dcmio.read_dicom( os.path.join(direc, _slice) )
                 if _tmp_dcm.StudyInstanceUID != ref_uid:
                     # not a same scan
                     continue
@@ -715,9 +715,19 @@ class BaseVolume:
 
     def toNifti(self, nifti_path):
         """store volume data to nifti file for convenience
+            Args:
+               target_vol: the specific volume, e.g. contour mask to be saved. Default is BaseVolume.array 
         """
-        pass
-
+        print("Warning: The affine transform parameters are not tested. But the volume should be working")
+        if self.frameofreference is None:
+            raise AttributeError("frame of reference is not provided")
+        _affine = np.diag([1,1,1,1])
+        for ii,scale in enumerate(self.frameofreference.spacing):
+            _affine[ii] = scale
+        _affine[0,0] *= -1
+        for ii,trans in enumerate(self.frameofreference.start):
+            _affine[ii,-1] = trans
+        niftiio.write_nii(self.array, os.path.basename(nifti_path), os.path.dirname(nifti_path), affine = _affine )
 
     @classmethod
     def fromMatlab(cls, path):
@@ -1099,7 +1109,9 @@ class BaseVolumePickle:
         self.modality      = None  # string
         self.feature_label = None  # string
 ###UNDER CONSTRUCTION###
-
+""" 
+RTContourLabel type added, allowing generating dense label from rtstructs.
+"""
 class RTContourLabel(ROI):
     """ Generating training labels from rtstruct. Supporting pixel-wise dense label map generation and soft probability
     map generation given the location of the contour center.
@@ -1169,6 +1181,7 @@ class RTContourLabel(ROI):
 
     def _loc_to_dense_array(self, ref_fid = None):
         """ given the reference slice, generate a mask with the same size """
+        #pdb.set_trace()
         if ref_fid is not None:
             _ref_filename = ref_fid
             self._get_FOR(ref_fid)
@@ -1201,6 +1214,7 @@ class RTContourLabel(ROI):
                 ref_fid: dicom file fid of image volume where the contour will be conformed to 
                 kernel: certain kernel to be used other than gaussian
         """
+        #pdb.set_trace()
         dense_location_map = self._loc_to_dense_array(ref_fid)
         self.dense_location_map = dense_location_map
         if kernel == 'Gaussian':
@@ -1211,7 +1225,6 @@ class RTContourLabel(ROI):
         else:
             raise Exception(" This function is still under construction! ")        
         
-
     def contour_mask(self, ref_fid = None):
         if ref_fid is not None:
             _ref_filename = ref_fid
@@ -1222,8 +1235,30 @@ class RTContourLabel(ROI):
         ct = super(RTContourLabel, self).makeDenseMask(self.reference_slice_FOR).array
         return self.normal * ct * 1.0 / np.max(ct)
     
-    
-
-
+    def saveNifti(self, nifti_path, volume, FOR):
+        """ Save file to mifti 
+        """
+        print("Warning: The order of axis are not tested. But the volume should be working")
+        if self.frameofreference is None:
+            raise AttributeError("frame of reference is not provided")
+        _affine = np.diag([1.0, 1.0, 1.0, 1.0])
+        for ii,scale in enumerate(list(FOR.spacing) ):
+            #pdb.set_trace()
+            _affine[ii,ii] = scale
+        _affine[0,0] *= -1
+        for ii,trans in enumerate(list(FOR.start) ):
+            _affine[ii, -1] = trans
+        _affine[0, -1] *= 1
+        pdb.set_trace()
+        out_dir = os.path.basename(nifti_path)
+        if out_dir == '':
+            out_dir = "./"
+        volume = volume.T         
+#        volume = np.flip(volume, axis = 0)
+        volume = np.flip(volume, axis = 1)
+        # TODO: This is super wired! The flipping
+#        volume = np.flip(volume, axis = 2)
+        
+        niftiio.write_nii(volume, filename = os.path.basename(nifti_path),path = os.path.dirname(nifti_path), affine = _affine )
 
 ###END OF CONSTRUCTION###
