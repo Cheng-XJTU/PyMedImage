@@ -9,6 +9,7 @@ import numpy as np
 import pdb
 
 # TODO: look into the documentation and find a way to preserve meta data
+
 def write_nii(array_data, filename, path = "", affine = None):
     """write np array into nii file"""
     if affine is None:
@@ -33,22 +34,24 @@ def read_nii_image(input_fid):
 
 def read_nii_object(input_fid):
     """ directly read the nii object """
+    #pdb.set_trace()
     return nib.load(input_fid)
 
 # write resampled nii file. Keep the corresponding metadata unchanged, for 3dslicer visualization
-def write_resampled_nii(original_obj, data_vol, filename, new_res = None,debug = False):
+def write_resampled_nii(original_obj, data_vol, filename, new_res = None, debug = False, output_dir = None):
     """ write resampleed nii file """
     affine = original_obj.get_affine()
     
     if debug == True:
-        old_affine = _affine
+        old_affine = affine
     # replace the affine scale parameter with new resolution
-    if new_res != None:
-        for i in range(3):
-            #pdb.set_trace()
-            affine[i,i] = new_res[i]
-        affine[0,0] *= -1
-        
+    if new_res is None:
+        raise ValueError("New resolution for resampling is not provided")
+    for i in range(3):
+        #pdb.set_trace()
+        affine[i,i] = new_res[i]
+    affine[0,0] *= -1
+    
     if debug == True:
         print("Old affine matrix: ")
         print(old_affine)
@@ -56,5 +59,11 @@ def write_resampled_nii(original_obj, data_vol, filename, new_res = None,debug =
         print(affine)
     
     output_obj = nib.Nifti1Image(data_vol, affine)
-    output_obj.to_filename("resampled_" + filename)
-    return "resampled_" + filename
+    if (output_dir is None) or (not (os.path.isdir(output_dir))):
+        output_dir = os.path.dirname(filename)
+        print("output directory for resample output not specified or incorrect, save to the output to the same folder as input")
+    if output_dir == "":
+        output_dor = "./"
+    filename = os.path.join(output_dir, "resampled_" + os.path.basename(filename))
+    output_obj.to_filename(filename)
+    return filename

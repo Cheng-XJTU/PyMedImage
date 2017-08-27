@@ -13,8 +13,8 @@ import pickle
 import scipy.io  # savemat -> save to .mat
 import struct
 import copy
-import pdb
 import warnings
+import pdb
 import scipy.ndimage.filters as sfilter
 from PIL import Image, ImageDraw
 from scipy.ndimage import interpolation
@@ -66,7 +66,6 @@ class FrameOfReference:
         Args:
             direc: directory of dicom object
         """
-        #pdb.set_trace()
         _offset = ( float(dcm_object.ImagePositionPatient[0]), float(dcm_object.ImagePositionPatient[1]), 0)
         _size = (int(dcm_object.Rows), int(dcm_object.Columns), 0)
         _spacing = (float(dcm_object.PixelSpacing[0]), float(dcm_object.PixelSpacing[1]), float(dcm_object.SliceThickness) )
@@ -88,7 +87,9 @@ class FrameOfReference:
                     continue
                 num_slices += 1
                 _z = _tmp_dcm.ImagePositionPatient[2]
+                ################
                 if _z < _min_z:
+                ########
                     _min_z = _z
             else:
                 continue
@@ -96,7 +97,6 @@ class FrameOfReference:
         if num_slices == 0:
             raise FileNotFoundError("No valid dicom slice in this volume!")
         # get size and offset
-        # pdb.set_trace()
         _size = list(_size)
         _offset = list(_offset)
         _size[2] = int(num_slices)
@@ -113,15 +113,12 @@ class FrameOfReference:
     @classmethod
     def from_dcm_fid(cls, dcm_fid, UID = None):
         """ initialization with a valid dicom slice fid """
-        #pdb.set_trace()
         try:
             os.path.isfile(dcm_fid)
         except:
             raise FileNotFoundError("Reference dicom slice %s not found"%dcm_fid)
-        #pdb.set_trace()
         dcm_dir = os.path.dirname(dcm_fid)
         dcm_object = dcm.read_file(dcm_fid)
-        #pdb.set_trace()
         return cls._from_dcm_image(dcm_object, direc = dcm_dir)        
 
     def __repr__(self):
@@ -196,7 +193,6 @@ class ROI:
             roicontour         -- dicom dataset containing contour point coords for all slices
             structuresetroi    -- dicom dataset containing additional information about contour
         """
-        #pdb.set_trace()
         self.roinumber = structuresetroi.ROINumber
         self.refforuid = structuresetroi.ReferencedFrameOfReferenceUID
         self.frameofreference = None
@@ -266,7 +262,6 @@ class ROI:
         # parse rtstruct file and instantiate maskvolume for each contour located
         # add each maskvolume to dict with key set to contour name and number?
         if (ds is not None):
-            #pdb.set_trace()
             # get structuresetROI sequence
             StructureSetROI_list = ds.StructureSetROISequence
             nContours = len(StructureSetROI_list)
@@ -1136,7 +1131,6 @@ class RTContourLabel(ROI):
 
     def __init__(self, base_ROI, reference_slice_fid = None, normal = 1.0):
         """ initialize from a pymedimage.rttypes.BaseVolume object """
-        #pdb.set_trace()
         self.__dict__ = copy.deepcopy(base_ROI.__dict__)
         self.array = super(RTContourLabel, self).makeDenseMask().array
         self.reference_slice_FOR = None
@@ -1172,7 +1166,6 @@ class RTContourLabel(ROI):
 
     def _idx2coord(self, idx, reference):
         """ reverse of _coord2idx"""
-        #pdb.set_trace()
         dcm_coords = []
         _ndims = len(reference.spacing)
         for axis in range(_ndims):
@@ -1181,7 +1174,6 @@ class RTContourLabel(ROI):
 
     def _loc_to_dense_array(self, ref_fid = None):
         """ given the reference slice, generate a mask with the same size """
-        #pdb.set_trace()
         if ref_fid is not None:
             _ref_filename = ref_fid
             self._get_FOR(ref_fid)
@@ -1194,7 +1186,6 @@ class RTContourLabel(ROI):
         _npdim2, _npdim1, _npdim0 = self.reference_slice_FOR.size
         # convert the center coordinate into index in the dense volume 
         dense_location_map = np.zeros([_npdim0, _npdim1, _npdim2])
-        #pdb.set_trace()
         dense_contour_center_idx = self._coord2idx(self.contour_loc_coord, self.reference_slice_FOR) 
         dense_location_map[dense_contour_center_idx] = 1
         return dense_location_map
@@ -1203,7 +1194,6 @@ class RTContourLabel(ROI):
         """ Get the reference frame fid """
         if ref_fid == None:
             raise FileNotFoundError("No fid for the reference slice is specified!")
-        #pdb.set_trace()
         self.reference_slice_FOR = FrameOfReference.from_dcm_fid(ref_fid)
 
     # TODO: Add support of other kernels
@@ -1214,7 +1204,6 @@ class RTContourLabel(ROI):
                 ref_fid: dicom file fid of image volume where the contour will be conformed to 
                 kernel: certain kernel to be used other than gaussian
         """
-        #pdb.set_trace()
         dense_location_map = self._loc_to_dense_array(ref_fid)
         self.dense_location_map = dense_location_map
         if kernel == 'Gaussian':
@@ -1238,27 +1227,52 @@ class RTContourLabel(ROI):
     def saveNifti(self, nifti_path, volume, FOR):
         """ Save file to mifti 
         """
-        print("Warning: The order of axis are not tested. But the volume should be working")
         if self.frameofreference is None:
             raise AttributeError("frame of reference is not provided")
-        _affine = np.diag([1.0, 1.0, 1.0, 1.0])
-        for ii,scale in enumerate(list(FOR.spacing) ):
-            #pdb.set_trace()
-            _affine[ii,ii] = scale
-        _affine[0,0] *= -1
-        for ii,trans in enumerate(list(FOR.start) ):
-            _affine[ii, -1] = trans
-        _affine[0, -1] *= 1
-        pdb.set_trace()
+        ###############debug###############
+#        _affine = np.diag([1.0, 1.0, 1.0, 1.0])
+#        for ii,scale in enumerate(list(FOR.spacing) ):
+#            _affine[ii,ii] = scale
+#
+#        _affine[0,0] *= -1
+#
+#        for ii,trans in enumerate(list(FOR.start) ):
+#            _affine[ii, -1] = trans
+#        _affine[0, -1] *= -1
+#        _affine[1,1] *= -1
+#        _affine[1,-1] *= -1
+#        
+        ############ end of debug
+        _tvol = volume.T
+        _affine = self._dcm2nii_affine(FOR, _tvol.shape)
+        #pdb.set_trace()
         out_dir = os.path.basename(nifti_path)
         if out_dir == '':
             out_dir = "./"
-        volume = volume.T         
-#        volume = np.flip(volume, axis = 0)
-        volume = np.flip(volume, axis = 1)
-        # TODO: This is super wired! The flipping
-#        volume = np.flip(volume, axis = 2)
-        
-        niftiio.write_nii(volume, filename = os.path.basename(nifti_path),path = os.path.dirname(nifti_path), affine = _affine )
-
+       # volume = volume.T         
+#       
+        _tvol = np.flip(_tvol, axis = 1)
+        niftiio.write_nii(_tvol, filename = os.path.basename(nifti_path),path = os.path.dirname(nifti_path), affine = _affine )
 ###END OF CONSTRUCTION###
+
+    def _dcm2nii_affine(self,FOR, vol_shape):
+        """ generate nifti affine matrix from dicom/frameOfReference coordinate system """
+        if FOR is None:
+            raise AttributeError("frame of reference is not provided")
+        _affine = np.diag([1.0, 1.0, 1.0, 1.0])
+        for ii,scale in enumerate(list(FOR.spacing) ):
+            _affine[ii,ii] = scale
+
+        _affine[0,0] *= -1
+
+        for ii,trans in enumerate(list(FOR.start) ):
+            _affine[ii, -1] = trans
+        _affine[0, -1] *= -1
+        # tricky part for nifti
+        _dim1 = vol_shape[1]
+        _dcm_trans = _affine[1,-1]
+        _nii_trans = _affine[0,0] * _dim1 - _dcm_trans
+        _affine[1 ,-1] = _nii_trans
+        return _affine
+        # end of debug
+
